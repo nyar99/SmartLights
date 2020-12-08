@@ -23,9 +23,9 @@
 // http://www.ti.com/lit/ds/symlink/lm2937-3.3.pdf
 #include <stdint.h>
 #include <string.h>
-#include "../inc/tm4c123gh6pm.h"
-#include "../UART.h"
-#include "../inc/ST7735.h"
+#include "../../inc/tm4c123gh6pm.h"
+#include "../../inc/UART.h"
+#include "../../inc/ST7735.h"
 #include "esp8266.h"
 // the following two lines connect you to the internet
 char    ssid[32]        = "SM-G930PF1C";
@@ -82,9 +82,14 @@ void Rx5Fifo_Init(void){ long sr;
 // return TXFIFOSUCCESS if successful
 int Rx5Fifo_Put(char data){
   if((Rx5PutI-Rx5GetI) & ~(RX5FIFOSIZE-1)){
+		UART_OutChar('F');
     return(FIFOFAIL); // Failed, fifo full
   }
   Rx5Fifo[Rx5PutI&(RX5FIFOSIZE-1)][Rx5PutJ] = data; // put
+	/*UART_OutString("data: ");
+	UART_OutChar(data);
+	UART_OutString(".\r\n");*/	
+	//UART_OutChar(data);
   if(data != '\n'){
     if(Rx5PutJ == (MESSAGESIZE-3)){
       // you should never get here!
@@ -92,15 +97,18 @@ int Rx5Fifo_Put(char data){
       Rx5Fifo[Rx5PutI&(RX5FIFOSIZE-1)][MESSAGESIZE-1] = '\n'; // message overflow, force a '\n'
       Rx5PutI++;   // end of message
       Rx5PutJ = 0; // get ready for new message
+			//UART_OutString("1asdf");
       return(FIFOSUCCESS); // bad situation, message buffer overflow
     }
     Rx5PutJ++;  // Success, update
+//		UART_OutString("2\r\n");
     return(FIFOSUCCESS);
   }
   Rx5Fifo[Rx5PutI&(RX5FIFOSIZE-1)][Rx5PutJ] = ',';
   Rx5Fifo[Rx5PutI&(RX5FIFOSIZE-1)][Rx5PutJ+1] = '\n';
   Rx5PutI++;   // end of message
   Rx5PutJ = 0; // get ready for new message
+//			UART_OutString("3");
   return(FIFOSUCCESS);
 }
 // remove a message from front of index FIFO
@@ -108,17 +116,19 @@ int Rx5Fifo_Put(char data){
 // if successful a message is copied from the FIFO into data buffer
 // return FIFOSUCCESS if successful
 // return FIFOFAIL if the FIFO is empty (no messages)
-int ESP8266_GetMessage(char *datapt){char data; int j;
+int ESP8266_GetMessage(char *datapt, int* size){char data; int j;
   if(Rx5PutI == Rx5GetI ){
     return(FIFOFAIL); // Empty if PutI=GetI
   }
   j = 0;
   do{
     data = Rx5Fifo[Rx5GetI&(RX5FIFOSIZE-1)][j];
+		//UART_OutChar(data);
     datapt[j] = data;
     j++;
   }while((j<MESSAGESIZE)&&(data != '\n'));
   Rx5GetI++;  // Success, update
+	*size = j;
   return(FIFOSUCCESS);
 }
 // number of messages in index FIFO
@@ -160,12 +170,52 @@ int Tx5Fifo_Get(char *datapt){
   Tx5GetI++;  // Success, update
   return(FIFOSUCCESS);
 }
+
+int Rx5Fifo_Get(char *datapt){
+  if(Rx5PutI == Rx5GetI ){
+    return(FIFOFAIL); // Empty if TxPutI=TxGetI
+  }
+  datapt = Rx5Fifo[Rx5GetI&(RX5FIFOSIZE-1)];
+  Rx5GetI++;  // Success, update
+  return(FIFOSUCCESS);
+}
 // number of elements in index FIFO
 // 0 to TX5FIFOSIZE-1
 unsigned long Tx5Fifo_Size(void){
  return ((unsigned long)(Tx5PutI-Tx5GetI));
 }
 
+void UART5_OutChar(char data){
+  while((UART5_FR_R&UART_FR_TXFF) != 0);
+  UART5_DR_R = data;
+}
+
+void UART5_OutString(char *pt){
+  while(*pt){
+    UART5_OutChar(*pt);
+    pt++;
+  }
+}
+
+
+char UART5_InChar(void){
+  while((UART5_FR_R&UART_FR_RXFE) != 0);
+  return((char)(UART5_DR_R&0xFF));
+}
+
+char UART5_InCharNonBlocking(void){
+
+  if((UART5_FR_R&UART_FR_RXFE) == 0){
+
+    return(( char)(UART5_DR_R&0xFF));
+
+  } else{
+
+    return 0;
+
+  }
+
+}
 // Initialize UART5, interrupt driven
 // Baud rate is 5,000,000/(ibrd+fbrd/64)
 // ESP8266 needs 9600 bits/sec
@@ -183,8 +233,42 @@ void UART5_Init(uint32_t priority){
   Tx5Fifo_Init();
   UART5_CTL_R &= ~UART_CTL_UARTEN;      // disable UART
          
-  UART5_IBRD_R = 520;                   // IBRD = int(80,000,000 / (16 * 9600)) = int(520.833)
-  UART5_FBRD_R = 53;                    // FBRD = round(0.833 * 64) = 53
+  UART5_IBRD_R = 43;                   // IBRD = int(80,000,000 / (16 * 9600)) = int(520.833)
+  UART5_FBRD_R = 26;                    // FBRD = round(0.833 * 64) = 53
+  //UART5_IBRD_R = 520;                   // IBRD = int(80,000,000 / (16 * 9600)) = int(520.833)
+  //UART5_FBRD_R = 53;                                      // 8 bit word length (no parity bits, one stop bit, FIFOs)
+  UART5_LCRH_R = (UART_LCRH_WLEN_8|UART_LCRH_FEN);
+  UART5_IFLS_R &= ~0x3F;                // clear TX and RX interrupt FIFO level fields
+                                        // configure interrupt for TX FIFO <= 1/8 full
+                                        // configure interrupt for RX FIFO >= 1/8 full
+  UART5_IFLS_R += (UART_IFLS_TX1_8|UART_IFLS_RX1_8);
+	//UART5_IFLS_R += UART_IFLS_RX1_8 ;                 // RX FIFO interrupt threshold >= 1/8th full
+
+                                        // enable TX and RX FIFO interrupts and RX time-out interrupt
+  UART5_IM_R |= (UART_IM_RXIM|UART_IM_TXIM|UART_IM_RTIM);
+  UART5_CTL_R |= UART_CTL_UARTEN;       // enable UART
+  GPIO_PORTE_AFSEL_R |= 0x30;           // enable alt funct on PE5-4
+  GPIO_PORTE_DEN_R |= 0x30;             // enable digital I/O on PE5-4
+                                        // configure PE5-4 as UART
+  GPIO_PORTE_PCTL_R = (GPIO_PORTE_PCTL_R&0xFF00FFFF)+0x00110000;
+  GPIO_PORTE_AMSEL_R &= ~0x30;          // disable analog functionality on PE
+                                        // set priority
+  NVIC_PRI15_R = (NVIC_PRI15_R&0xFFFF00FF)|(priority<<13); // bits 13-15
+  //interrupt 61, n=15, Bits 15:13 Interrupt [4n+1]
+  NVIC_EN1_R = 0x01<<(61-32);           // enable interrupt 61 in NVIC
+}
+/*void UART5_Init(uint32_t priority){
+  if(priority>7){
+    priority = 7;
+  } 
+  SYSCTL_RCGCUART_R |= 0x20; // activate UART5
+  SYSCTL_RCGCGPIO_R |= 0x10; // activate port E
+  Rx5Fifo_Init();                       // initialize empty FIFOs
+  Tx5Fifo_Init();
+  UART5_CTL_R &= ~UART_CTL_UARTEN;      // disable UART
+         
+  UART5_IBRD_R = 43;                   // IBRD = int(80,000,000 / (16 * 9600)) = int(520.833)
+  UART5_FBRD_R = 26;                    // FBRD = round(0.833 * 64) = 53
                                         // 8 bit word length (no parity bits, one stop bit, FIFOs)
   UART5_LCRH_R = (UART_LCRH_WLEN_8|UART_LCRH_FEN);
   UART5_IFLS_R &= ~0x3F;                // clear TX and RX interrupt FIFO level fields
@@ -203,24 +287,33 @@ void UART5_Init(uint32_t priority){
   NVIC_PRI15_R = (NVIC_PRI15_R&0xFFFF00FF)|(priority<<13); // bits 13-15
   //interrupt 61, n=15, Bits 15:13 Interrupt [4n+1]
   NVIC_EN1_R = 0x01<<(61-32);           // enable interrupt 61 in NVIC
-}
+}*/
 
 // copy from hardware RX FIFO to software RX FIFO
 // stop when hardware RX FIFO is empty or software RX FIFO is full
 void static copyHardwareToSoftware5(void){
   char letter;
+	int count = 0;
   while(((UART5_FR_R&UART_FR_RXFE) == 0) && (Rx5Fifo_Size() < (RX5FIFOSIZE - 1))){
     letter = UART5_DR_R;
+		UART_OutChar(letter);
     Rx5Fifo_Put(letter);
+		count++;
   }
+
+	//UART_OutString("msg size: ");
+	//UART_OutUDec(count);
+	//UART_OutString("\r\n");
 }
 // copy from software TX FIFO to hardware TX FIFO
 // stop when software TX FIFO is empty or hardware TX FIFO is full
 void static copySoftwareToHardware5(void){
   char letter;
+	int c = Tx5Fifo_Size();
   while(((UART5_FR_R&UART_FR_TXFF) == 0) && (Tx5Fifo_Size() > 0)){
     Tx5Fifo_Get(&letter);
     UART5_DR_R = letter;
+		UART_OutChar(letter);
   }
 }
 
@@ -249,16 +342,25 @@ void UART5_Handler(void){
     if(Tx5Fifo_Size() == 0){             // software TX FIFO is empty
       UART5_IM_R &= ~UART_IM_TXIM;      // disable TX FIFO interrupt
     }
+		//UART_OutString("TX\r\n");
   }
   if(UART5_RIS_R&UART_RIS_RXRIS){       // hardware RX FIFO >= 2 items
     UART5_ICR_R = UART_ICR_RXIC;        // acknowledge RX FIFO
-    // copy from hardware RX FIFO to software RX FIFO
+    // copy from hardware RX FIFO to software RX FIFO	
+		UART_OutString("RX\r\n");
     copyHardwareToSoftware5();
+		char* msg;
+		/*if(Rx5Fifo_Get(msg)){
+			UART_OutString("msg: ");
+			UART_OutString(msg);
+			//UART5_OutString(msg);
+		}*/
   }
   if(UART5_RIS_R&UART_RIS_RTRIS){       // receiver timed out
     UART5_ICR_R = UART_ICR_RTIC;        // acknowledge receiver time out
     // copy from hardware RX FIFO to software RX FIFO
     copyHardwareToSoftware5();
+		//UART_OutString("RXtimeout\r\n");
   }
 }
 
@@ -341,7 +443,7 @@ void ESP8266_Reset(void) {
   UART_OutString("Reset pin being held low for 5 sec\r\n");
 #endif
   RST = LOW;      // Reset the 8266
-  DelayMs(5000);  // Wait for 8266 to reset
+  DelayMs(10000);  // Wait for 8266 to reset
   RST = RST1;     // Enable the 8266
 #ifdef DEBUG1
   UART_OutString("Reset pin is now high for 5 sec\r\n");
@@ -354,86 +456,13 @@ void ESP8266_Reset(void) {
   PE3 = LOW;             // Turn off 
 }
 
-// ----------------------------------------------------------------------
-// This routine sets up the Wifi connection between the TM4C and the
-// hotspot. Enable the DEBUG flags in esp8266.h if you want to watch the transactions.
-void ESP8266_SetupWiFi(void) { 
-#ifdef DEBUG1
-  UART_OutString("\r\nIn WiFI_Setup routine\r\n");
-  UART_OutString("Waiting for RDY flag from ESP\r\n");
-#endif
-  
-#ifdef DEBUG3
-  Output_Color(ST7735_YELLOW);
-  ST7735_OutString("In WiFI_Setup routine\n");
-  ST7735_OutString("Waiting for RDY flag\n");
-#endif 
-  while (!RDY) {      // Wait for ESP8266 indicate it is ready for programming data
-#ifdef DEBUG1
-    UART_OutString(".");
-#endif
-    DelayMs(1000);
-  }
-  ESP8266_OutString(auth);    // Send authorization code
-  ESP8266_OutChar(',');
-  ESP8266_OutString(ssid);
-  ESP8266_OutChar(',');
-  ESP8266_OutString(pass); 
-  ESP8266_OutChar(',');       // Extra comma needed for 8266 parser code
-  ESP8266_OutChar('\n');      // Send NL to indicate EOT   
-
-#ifdef DEBUG1
-  UART_OutString(auth);    
-  UART_OutChar(',');
-  UART_OutString(ssid);
-  UART_OutChar(',');
-  UART_OutString(pass);
-  UART_OutString(",\n\r");            
-#endif
-#ifdef DEBUG3
-  Output_Color(ST7735_WHITE);
-  ST7735_OutString(ssid); ST7735_OutChar('\n');
-  ST7735_OutString(pass); ST7735_OutChar('\n');
-  ST7735_OutString(auth); ST7735_OutChar('\n');
-#endif
-
-  //
-  // This while loop receives debug info from the 8266 and optionally 
-  // sends it out the debug port. The loop exits once the RDY signal
-  // is deasserted and the serial port has no more character to xmit
-  // 
-#ifdef DEBUG1
-  UART_OutString("\n\rWaiting for RDY to go low\n\r");
-#endif 
-  while(RDY){   // pause while RDY=1
-#ifdef DEBUG1 
-    UART_OutString(".");
-#endif
-    DelayMs(500);
-  }
-  while(ESP8266_GetMessage(RxMessage)){
-  }
-#ifdef DEBUG1
-  UART_OutString("\n\rRDY went low\n\r");
-#endif 
-  Rx5Fifo_Init(); // flush buffer
-
-#ifdef DEBUG3
-  Output_Color(ST7735_YELLOW);
-  ST7735_OutString("Exiting WiFI_Setup\nReady to talk\n");
-#endif     
-#ifdef DEBUG1
-  UART_OutString("Exiting TM4C WiFI_Setup routine\r\nReady to talk\r\n");
-#endif
-  PE3 = BIT3;
-}
 
 // ----------------------------------------------------------------------
 // This routine connects to wifi establishes TCP connection to host on network.
 void ESP8266_SetupConnection(void) { 
 #ifdef DEBUG1
-  UART_OutString("\r\nIn ConnectionSetup routine\r\n");
-  UART_OutString("Waiting for RDY flag from ESP\r\n");
+  UART_OutString("\r\nIn Connection Setup routine\r\n");
+ // UART_OutString("Waiting for RDY flag from ESP\r\n");
 #endif
   
 #ifdef DEBUG3
@@ -441,47 +470,33 @@ void ESP8266_SetupConnection(void) {
   ST7735_OutString("In WiFI_Setup routine\n");
   ST7735_OutString("Waiting for RDY flag\n");
 #endif 
-  while (!RDY) {      // Wait for ESP8266 indicate it is ready for programming data
+ /*while (!RDY) {      // Wait for ESP8266 indicate it is ready for programming data
 #ifdef DEBUG1
     UART_OutString(".");
 #endif
     DelayMs(1000);
-  }
-  ESP8266_OutString("AT+CWMODE=3\0");    //Set Wifi mode
-	if(ESP8266_GetMessage(RxMessage))
-		UART_OutString(RxMessage);
-	ESP8266_OutString("AT+CWJAP=\"SM-G930PF1C\",\"5128048607\"\0")
-	if(ESP8266_GetMessage(RxMessage))
-		UART_OutString(RxMessage);
-  ESP8266_OutString("AT+CIPSTART=\"TCP\",\"ipaddress\",\"8080\"\0");
-	if(ESP8266_GetMessage(RxMessage))
-		UART_OutString(RxMessage);	
-  ESP8266_OutChar('\n');      // Send NL to indicate EOT   
-  //
-  // This while loop receives debug info from the 8266 and optionally 
-  // sends it out the debug port. The loop exits once the RDY signal
-  // is deasserted and the serial port has no more character to xmit
-  // 
-#ifdef DEBUG1
-  UART_OutString("\n\rWaiting for RDY to go low\n\r");
-#endif 
-  while(RDY){   // pause while RDY=1
-#ifdef DEBUG1
-    UART_OutString(".");
-#endif
-    DelayMs(500);
-  }
-  while(ESP8266_GetMessage(RxMessage)){
-  }
-#ifdef DEBUG1
-  UART_OutString("\n\rRDY went low\n\r");
-#endif 
-  Rx5Fifo_Init(); // flush buffer
+  }*/
+	UART_OutString("\nSetting Wifi mode");
+  ESP8266_OutString("AT+CWMODE=1\0");    //Set Wifi mode
+	
+	UART_OutString("\nConnecting to AP");
+	ESP8266_OutString("AT+CWJAP=\"ATTiwmRXCT\",\"u55ek8yiiyw=\"\0");
 
-#ifdef DEBUG1
+	ESP8266_OutString("AT+CIFSR\0");
+
+	ESP8266_OutString("AT+CIPMUX=0\0");
+	
+	ESP8266_OutString("AT+CIPMODE=0\0");
+	
+	ESP8266_OutString("AT+CIPSTATUS\0");
+	
+  /*ESP8266_OutString("AT+CIPSTART=\"TCP\",\"ipaddress\",\"8080\"\0");
+	if(ESP8266_GetMessage(RxMessage))
+		UART_OutString(RxMessage);*/
+  ESP8266_OutChar('\n');      // Send NL to indicate EOT   
+  Rx5Fifo_Init(); // flush buffer
   UART_OutString("Exiting TM4C WiFI_Setup routine\r\nReady to talk\r\n");
-#endif
-  PE3 = BIT3;
+
 }
 
 

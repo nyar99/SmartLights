@@ -396,12 +396,22 @@
             <File>
               <FileName>PLL.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\inc\PLL.c</FilePath>
+              <FilePath>..\..\inc\PLL.c</FilePath>
             </File>
             <File>
-              <FileName>UART.c</FileName>
+              <FileName>FIFO.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\FIFO.h</FilePath>
+            </File>
+            <File>
+              <FileName>esp8266V.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\inc\UART.c</FilePath>
+              <FilePath>.\esp8266V.c</FilePath>
+            </File>
+            <File>
+              <FileName>UARTV.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\UARTV.c</FilePath>
             </File>
           </Files>
         </Group>

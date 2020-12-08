@@ -1,0 +1,9 @@
+.\esp8266v.o: esp8266V.c
+.\esp8266v.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
+.\esp8266v.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdbool.h
+.\esp8266v.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdint.h
+.\esp8266v.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\string.h
+.\esp8266v.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdlib.h
+.\esp8266v.o: ../../inc/tm4c123gh6pm.h
+.\esp8266v.o: esp8266V.h
+.\esp8266v.o: UARTV.h

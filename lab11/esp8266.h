@@ -18,6 +18,10 @@
 #define DEBUG1                // UART0 Debug output
 //#define DEBUG3                // ST7735 Debug output
 
+char UART5_InChar(void);
+void UART5_OutString(char* pt);
+void UART5_OutChar(char data);
+
 // Initialize PE5,4,3,1,0 for interface to ESP8266
 // Uses interrupt driven UART5 on PE5,4
 // Uses simple GPIO output on PE3,1,0
@@ -37,7 +41,7 @@ void ESP8266_SetupWiFi(void);
 // if successful a message is copied from the FIFO into data buffer
 // return FIFOSUCCESS if successful
 // return FIFOFAIL if the FIFO is empty (no messages)
-int ESP8266_GetMessage(char *datapt);
+int ESP8266_GetMessage(char *datapt, int *size);
 
 
 
@@ -59,6 +63,7 @@ void ESP8266_OutString(char *pt);
 // Variable format 1-10 digits with no space before or after
 void ESP8266_OutUDec(uint32_t n);
 
+void ESP8266_SetupConnection(void);
 #endif
   
 

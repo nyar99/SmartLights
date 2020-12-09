@@ -27,8 +27,8 @@
 #include "../../inc/PLL.h"
 #include "esp8266V.h"
 //#include "esp8266.h"
-#include "../../inc/UART.h"
-//#include "UARTV.h"
+#include "UART1.h"
+#include "UARTV.h"
 #include "../../inc/tm4c123gh6pm.h"
 
 
@@ -39,31 +39,6 @@
 void OutCRLF(void){
   UART_OutChar(CR);
   UART_OutChar(LF);
-}
-
-//debug code
-int main1(void){
-  char ch;
-  char string[20];  // global to assist in debugging
-  uint32_t n;
-
-  PLL_Init(Bus80MHz);       // 80  MHz
-  //UART5_Init(1);              // initialize UART
-
-
-  OutCRLF();
-  while(1){
-		UART_OutString("Hello");
-    UART_InString(string,19);
-    UART_OutString(" OutString="); UART_OutString(string); OutCRLF();
-
-    UART_OutString("InUDec: ");  n=UART_InUDec();
-    UART_OutString(" OutUDec="); UART_OutUDec(n); OutCRLF();
-
-    UART_OutString("InUHex: ");  n=UART_InUHex();
-    UART_OutString(" OutUHex="); UART_OutUHex(n); OutCRLF();
-
-  }
 }
 
 

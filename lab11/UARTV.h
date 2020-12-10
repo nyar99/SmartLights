@@ -42,12 +42,14 @@
 // Input: none
 // Output: none
 void UART_Init(void);
+void UART1_Init(void);
 
 //------------UART_InChar------------
 // Wait for new serial port input
 // Input: none
 // Output: ASCII code for key typed
 char UART_InChar(void);
+char UART1_InChar(void);
 
 //------------UART_InCharNonBlock------------
 // input ASCII character from UART
@@ -60,6 +62,7 @@ char UART_InCharNonBlock(void);
 // Input: letter is an 8-bit ASCII character to be transferred
 // Output: none
 void UART_OutChar(char data);
+void UART1_OutChar(char data);
 
 //------------UART_OutCharNonBlock------------
 // non blocking output ASCII character to UART
@@ -73,6 +76,8 @@ void UART_OutCharNonBlock(char data);
 // Input: pointer to a NULL-terminated string to be transferred
 // Output: none
 void UART_OutString(char *pt);
+void UART1_OutString(char *pt);
+void testArduino(void);
 
 //------------UART_InUDec------------
 // InUDec accepts ASCII input in unsigned decimal format

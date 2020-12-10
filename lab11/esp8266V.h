@@ -41,6 +41,7 @@ void ESP8266_BasicInit(uint32_t baud);
 //         echo to UART0?
 // Outputs: none
 void ESP8266_InitUART(uint32_t baud, int echo);
+void Arduino_InitUART(uint32_t baud, int echo);
 
 //---------ESP8266_GetVersionNumber----------
 // get status

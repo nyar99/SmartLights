@@ -24,6 +24,8 @@
 // U0Tx (VCP transmit) connected to PA1
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
 #include "../../inc/PLL.h"
 #include "esp8266V.h"
 //#include "esp8266.h"
@@ -82,9 +84,8 @@ void UART1_Handler(void){
     UART1_ICR_R = UART_ICR_RTIC;      // acknowledge receiver time
   }
 }
-
-//arduino tm4c uart debug
-/*int main(void){
+/*arduino uart test
+int main(void){
 	PLL_Init(Bus80MHz);
 	UART_Init();
 	UART1_Init();
@@ -92,43 +93,6 @@ void UART1_Handler(void){
 	while(1){
 		UART1_OutChar('Z');
 		UART_OutChar(UART1_InChar());
-	}
-}*/
-
-/*int main(void){
-	PLL_Init(Bus80MHz);
-	UART_Init();
-	ESP8266_Init();
-	//ESP8266_Reset();
-	//DelayMs(5000);
-	UART_OutString("Start\r\n");
-	ESP8266_OutString("AT+RST\r\n");
-	DelayMs(5000);
-	ESP8266_OutString("AT\r\n");
-	DelayMs(1000);
-	//ESP8266_OutString("AT+RST\r\n");
-	//DelayMs(1000);
-	ESP8266_OutString("AT+CWMODE=1\r\n");
-	DelayMs(1000);
-	ESP8266_OutString("AT+CWJAP=\"SM-G930PF1C\",\"5128048607\"\r\n");
-	//DelayMs(10000);
-	ESP8266_OutString("AT+CIPSTART=\"TCP\",\"192.168.43.83\",8080\r\n");
-	ESP8266_OutString("AT+CIPSTATUS\r\n");
-	DelayMs(1000);
-	//ESP8266_OutString("AT+PING=\"192.168.43.33\"\r\n");
-	//DelayMs(5000);
-	ESP8266_OutString("AT+CWLIF\r\n");
-	DelayMs(5000);
-	ESP8266_OutString("AT+CIPMUX=0\r\n");
-	DelayMs(5000);
-	ESP8266_OutString("AT+CIPSTATUS\r\n");
-	DelayMs(1000);
-	while(1){
-		ESP8266_OutString("AT+CIPSTATUS\r\n");
-		DelayMs(1000);
-		
-		//UART_OutString(".");	
-		//UART_OutChar(UART5_InCharNonBlocking());
 	}
 }*/
 
@@ -147,6 +111,7 @@ int main(void){
 	PLL_Init(Bus80MHz);
 	Output_Init();
 	ESP8266_BasicInit(115200);
+	Arduino_InitUART(115200, true);
 	ESP8266SendCommand("AT\r\n");
 	if(ESP8266_Reset()==0){ 
     UART_OutString("Reset failure, could not reset\n\r"); while(1){};
@@ -158,7 +123,7 @@ int main(void){
     UART_OutString("JoinAccessPoint error, could not join AP\n\r"); while(1){};
   } else{
 		UART_OutString("Succesfully connected to AP\r\n");
-		DelayMs(8000);
+		DelayMs(5000);
 		ESP8266SendCommand("AT+CIFSR\r\n");
 		DelayMs(1000);
 		if(ESP8266_SetConnectionMux(0)==0){ // single socket
@@ -171,20 +136,10 @@ int main(void){
 			UART_OutString("Connection status failed\n\r");
 		}
 		DelayMs(1000);
-		ESP8266SendCommand("AT+CIPSTART=\"TCP\",\"http:\\\\192.168.1.133\",8080\r\n");
-		//UART_OutString("ESP8266 IP address: ");
-		/*if(ESP8266_MakeTCPConnection("127.0.0.1")==0){ 
-			UART_OutString("Could not make TCP connection\n\r"); while(1){};
-		} else{
-			char* getRequest = "GET /song_info HTTP/1.1\nHost: 127.0.0.1:8080\nConnection: close\n\r\n";
-			if(ESP8266_SendTCP(getRequest)==0){ 
-				UART_OutString("Send tcp failed\n\r"); while(1){};
-			}
-		}*/
-		//ESP8266SendCommand("AT+CIPSTART=\"TCP\",\"192.168.43.83\",8080\r\n");
-		//DelayMs(5000);
-		//ESP8266SendCommand("AT+CIPSEND=80\r\n");
-
+		ESP8266_MakeTCPConnection("192.168.1.113");
+		DelayMs(5000);
+		char* request = "GET /song_info HTTP/1.1\n Host: 192.168.1.113:8080\n Connection:keep-alive \n\r";
+		ESP8266_SendTCP(request);
 	}
 
 	while(1){}

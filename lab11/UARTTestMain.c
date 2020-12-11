@@ -107,12 +107,7 @@ void Delay1s(uint32_t n){uint32_t volatile time;
   }
 }
 
-int main(void){
-	PLL_Init(Bus80MHz);
-	Output_Init();
-	ESP8266_BasicInit(115200);
-	Arduino_InitUART(115200, true);
-	ESP8266SendCommand("AT\r\n");
+void resetConnect(void){
 	if(ESP8266_Reset()==0){ 
     UART_OutString("Reset failure, could not reset\n\r"); while(1){};
   }
@@ -140,8 +135,18 @@ int main(void){
 		DelayMs(5000);
 		char* request = "GET /song_info HTTP/1.1\n Host: 192.168.1.113:8080\n Connection:keep-alive \n\r";
 		ESP8266_SendTCP(request);
+		ESP8266SendCommand("\n\r");
+		DelayMs(5000);
 	}
+}
 
-	while(1){}
+int main(void){
+	PLL_Init(Bus80MHz);
+	Output_Init();
+	ESP8266_BasicInit(115200);
+	Arduino_InitUART(115200, true);
+	while(1){
+		resetConnect();
+	}
 }
 

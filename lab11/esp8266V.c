@@ -115,12 +115,13 @@ volatile bool ESP8266_PageRequested = false;
 #define BUFFERSIZE 11
 char SearchString[32];
 char serial_buffer[BUFFERSIZE];
+char lastTempo[BUFFERSIZE];
+volatile bool tempoSet = true;
 volatile bool SearchLooking = false;
 volatile bool SearchFound = false;
 volatile bool SearchTimeZone = false;
 volatile uint8_t TimeZoneSearchIndex = 0;
 volatile uint32_t SearchIndex = 0;
-char lastTempo[10];
 char lc(char letter){
   if((letter>='A')&&(letter<='Z')) letter |= 0x20;
   return letter;
@@ -142,11 +143,23 @@ void bufferRotate(char letter){
 void printTempo(void) {
   if (serial_buffer[BUFFERSIZE-2] == 'O' && serial_buffer[BUFFERSIZE-1] == 'K'){
     if (serial_buffer[3] == '.' || serial_buffer[4] == '.'){
-      for (int i = 0; i < BUFFERSIZE-2; i++){
-        UART1_OutChar(serial_buffer[i]);  
-      } 
-      UART1_OutChar('\n');
-      UART1_OutChar('\r');
+			if(tempoSet){
+				//memcpy(lastTempo, serial_buffer, sizeof(serial_buffer));
+				for (int i = 0; i < BUFFERSIZE-2; i++){
+					UART1_OutChar(serial_buffer[i]);  
+				} 
+				UART1_OutChar('\n');
+				UART1_OutChar('\r');
+			} else {
+				tempoSet = true;
+				memcpy(lastTempo, serial_buffer, sizeof(serial_buffer));
+				for (int i = 0; i < BUFFERSIZE-2; i++){
+					UART1_OutChar(serial_buffer[i]);  
+				} 
+				UART1_OutChar('\n');
+				UART1_OutChar('\r');
+			}
+      
     }
   }
 }
@@ -675,7 +688,7 @@ int ESP8266_SendTCP(char* fetch){
   ESP8266SendCommand(TXBuffer);  
   DelayMs(50);
   ESP8266SendCommand(fetch);
-	ESP8266SendCommand("\n\r ");
+	//ESP8266SendCommand("\n\r ");
   ServerResponseSearchStart();
   n = 8000;
   while(n&&(ServerResponseSearchFinished==0)){
